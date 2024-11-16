@@ -1,0 +1,163 @@
+name: Linux Arm64 Release Build
+on:
+  workflow_dispatch:
+    inputs:
+      build-version:
+        description: 'Version tag to build'
+        required: true
+      build-channel:
+        description: 'Channel to build'
+        required: false
+        default: 'alpha'
+      publish:
+        description: 'Publish to GitHub Releases'
+        required: false
+        default: 'false'
+  workflow_call:
+    inputs:
+      build-version:
+        description: 'Version tag to build'
+        required: true
+        type: string
+      build-channel:
+        description: 'Channel to build'
+        required: false
+        default: 'alpha'
+        type: string
+      publish:
+        description: 'Publish to GitHub Releases'
+        required: false
+        default: 'false'
+        type: string
+
+jobs:
+  build-linux:
+    timeout-minutes: 120
+    permissions:
+      contents: write
+    runs-on: buildjet-32vcpu-ubuntu-2204-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with: 
+          submodules: recursive
+
+      - name: Install Node.js
+        uses: buildjet/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install and upgrade build deps
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y dos2unix yasm nasm build-essential libgtk2.0-dev libpython3-dev m4 \
+            uuid libasound2-dev libcurl4-openssl-dev libdbus-1-dev libdrm-dev libdbus-glib-1-dev \
+            libdbus-glib-1-dev libgtk-3-dev libpulse-dev libx11-xcb-dev libxt-dev xvfb
+
+      - name: Install LLVM 18 and WASM Support
+        run: | 
+          # install llvm repo
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 18 all
+
+          # wasm support
+          sudo apt-get install -y libclang-rt-18-dev-wasm32 libclang-rt-18-dev-wasm64 \
+            libc++-18-dev-wasm32 libc++abi-18-dev-wasm32 libclang-rt-18-dev-wasm32 \
+            libclang-rt-18-dev-wasm64 libclang-rt-18-dev libpolly-18-dev wasi-libc
+
+      - name: Install Wasi sdk 24
+        run: |
+          wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-24/wasi-sdk-24.0-arm64-linux.tar.gz
+          mkdir -p wasi-sdk-24
+          tar -xvf wasi-sdk-24.0-arm64-linux.tar.gz -C ${{ github.workspace }}/wasi-sdk-24 --strip-components=1
+
+          echo "WASI_SYSROOT=${{ github.workspace }}/wasi-sdk-24/share/wasi-sysroot" >> $GITHUB_ENV
+          echo "WASM_CC=${{ github.workspace }}/wasi-sdk-24/bin/clang" >> $GITHUB_ENV
+          echo "WASM_CXX=${{ github.workspace }}/wasi-sdk-24/bin/clang++" >> $GITHUB_ENV
+
+      - name: Upgrade Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1.10.1
+      - run: rustup target add wasm32-wasi
+    
+      - name: Install npm dependencies
+        run: | 
+          cd desktop
+          pnpm install
+
+      - name: Run Init Task 
+        run: | 
+          cd desktop 
+          npm run init
+
+      - name: Apply patches for arm64 build
+        run: |
+          sed -i 's/x86-\(64\|64-v3\)/native/g' desktop/configs/linux/mozconfig
+          sed -i 's/x86_64-pc-linux/aarch64-linux-gnu/g' desktop/configs/linux/mozconfig
+          sed -i '/--enable-eme/s/^/# /' desktop/configs/common/mozconfig
+
+      - name: Add locales
+        run: |
+          cd desktop
+          sh scripts/copy-language-pack.sh en-US
+
+          for lang in $(cat ./l10n/supported-languages); do
+            sh scripts/copy-language-pack.sh "$lang"
+          done
+
+      - name: Load surfer CI setup
+        run: |
+          cd desktop
+          VERSION=${{ github.event.inputs.build-version }}
+          CHANNEL=${{ github.event.inputs.build-channel }}
+          pnpm surfer ci --brand $CHANNEL --version $VERSION
+
+      - name: Build 
+        run: |
+          cd desktop
+          set -ex
+          Xvfb :2 -screen 0 1024x768x24 &
+          echo "DISPLAY=:2" >> $GITHUB_ENV
+          npm run build
+
+      - name: Package
+        run: |
+          cd desktop
+          npm run package
+      
+      - name: Rename Build Artifact
+        run: |
+          mv desktop/dist/zen-*.tar.bz2 zen-browser-linux-arm64.tar.bz2
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zen-browser-linux-arm64.tar.bz2
+          path: zen-browser-linux-arm64.tar.bz2
+
+      - name: Setup Release
+        id: setup-release
+        if: ${{ github.event.inputs.publish == 'true' }}
+        run: |
+          # rename the artifact to the generic name
+          mv zen-browser-linux-arm64.tar.bz2 zen.linux-generic.tar.bz2
+
+          # release name is uppercased channel and version followed by date in (YYYY-MM-DD) format
+          CHANNEL=$(echo ${{ github.event.inputs.build-channel }} | tr '[:lower:]' '[:upper:]')
+          RELEASE_NAME="$CHANNEL ${{ github.event.inputs.build-version }} $(date +'%Y-%m-%d')"
+          echo "::set-output name=RELEASE_NAME::$RELEASE_NAME"
+
+      - name: Publish Release
+        if: ${{ github.event.inputs.publish == 'true' }}
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ github.event.inputs.build-version }}
+          release_name: ${{ steps.setup-release.outputs.RELEASE_NAME }}
+          body: "Binary release for Linux Arm64 version ${{ github.event.inputs.build-version }}"
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
