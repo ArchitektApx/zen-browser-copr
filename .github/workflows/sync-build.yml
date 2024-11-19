@@ -261,7 +261,12 @@ jobs:
           sed -i '/%changelog/,$d' zen-browser.spec
           echo -e "%changelog\n$NEW_CHANGELOG" >> zen-browser.spec
           git add zen-browser.spec
-  
+
+      - name: Update Install Script
+        run: |
+          sed -i 's@https://github.com/ArchitektApx/zen-browser-arm64-copr/releases/download/.*@https://github.com/ArchitektApx/zen-browser-arm64-copr/releases/download/'$ZEN_VER'/zen.linux-generic.tar.bz2@g' install-zen-browser-arm64.sh
+          git add install-zen-browser-arm64.sh
+
       - name: commit and tag new version
         id: commit-update
         run: |
@@ -303,7 +308,7 @@ jobs:
       - name: Publish Release
         uses: ncipollo/release-action@v1.14.0
         with: 
-          artifacts: zen.linux-generic.tar.bz2
+          artifacts: zen.linux-generic.tar.bz2, install-zen-browser-arm64.sh
           tag: ${{ needs.sync-upstream.outputs.zen_ver }}
           commit: ${{ needs.build-linux.outputs.commit-id }}
           token: ${{ secrets.GITHUB_TOKEN }}

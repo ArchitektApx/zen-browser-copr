@@ -54,3 +54,7 @@ sudo dnf install zen-browser
 ```Shell
 zen-browser
 ```
+
+## Install without Fedora COPR / other Distros
+
+If you do not want to use COPR or you are not using fedora you can use [install-zen-browser-arm64.sh](https://github.com/ArchitektApx/zen-browser-arm64-copr/blob/master/install-zen-browser-arm64) to install zen-browser from the latest release in this repository
