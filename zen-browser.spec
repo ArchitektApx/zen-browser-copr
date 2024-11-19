@@ -71,9 +71,9 @@ gtk-update-icon-cache -f -t %{_datadir}/icons/hicolor
 /opt/%{full_name}
 
 %changelog
-* Tue Nov 19 2024 ArchitektApx <ArchitektApx@users.noreply.github.com> - 1.0.1.a.19
+* Tue Nov 19 2024 ArchitektApx <architektapx@gehinors.ch> - 1.0.1.a.19
 - Upstream: Fix: adjust vertical tab background opacity for improved visibility
 
-* Sat Nov 16 2024 ArchitektApx <ArchitektApx@users.noreply.github.com> - 1.0.1.a.18
+* Sat Nov 16 2024 ArchitektApx <architektapx@gehinors.ch> - 1.0.1.a.18
 - Upstream: (style) Modify button active state to exclude workspace button
 - Inital arm64 build release

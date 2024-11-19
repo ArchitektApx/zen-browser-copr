@@ -255,7 +255,7 @@ jobs:
           CHANGELOG="$(sed -n '/%changelog/,$p' zen-browser.spec | sed '1d')"
 
           # create new changelog line with current date and commit messag
-          NEW_CHANGELOG=$(echo -e "* $(date +'%a %b %d %Y') ArchitektApx <ArchitektApx@users.noreply.github.com> - $ZEN_VER_SPEC\n- $COMMIT_MSG\n\n$CHANGELOG")
+          NEW_CHANGELOG=$(echo -e "* $(date +'%a %b %d %Y') ArchitektApx <architektapx@gehinors.ch> - $ZEN_VER_SPEC\n- $COMMIT_MSG\n\n$CHANGELOG")
 
           # replace old changelog with new one
           sed -i '/%changelog/,$d' zen-browser.spec
