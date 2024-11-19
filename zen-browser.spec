@@ -9,7 +9,7 @@ Summary:            Zen Browser
 
 License:            MPLv2.0
 URL:                https://github.com/zen-browser/desktop
-Source0:            https://github.com/ArchitektApx/zen-browser-arm64-copr/releases/download/1.0.1-a.19/zen.linux-generic.tar.bz2
+Source0:            https://github.com/ArchitektApx/zen-browser-arm64-copr/releases/download/1.0.1-a.18/zen.linux-generic.tar.bz2
 Source1:            %{full_name}.desktop
 Source2:            policies.json
 Source3:            %{full_name}
@@ -71,6 +71,6 @@ gtk-update-icon-cache -f -t %{_datadir}/icons/hicolor
 /opt/%{full_name}
 
 %changelog
-* Sat Nov 16 2024 ArchitektApx <ArchitektApx@users.noreply.github.com> - 1.0.1-a.18
+* Sat Nov 16 2024 ArchitektApx <ArchitektApx@users.noreply.github.com> - 1.0.1.a.18
 - Upstream: (style) Modify button active state to exclude workspace button
 - Inital arm64 build release
