@@ -3,7 +3,7 @@
 %global             debug_package %{nil}
 
 Name:               zen-browser-twilight
-Version:            1.0.1.a.19
+Version:            1.0.1.t.20
 Release:            1%{?dist}
 Summary:            Zen Browser Twilight Build
 
@@ -68,6 +68,8 @@ if [ -d /usr/share/hyphen ]; then ln -Tsf /usr/share/hyphen %{buildroot}/opt/%{f
 /opt/%{full_name}
 
 %changelog
+* Mon Nov 25 2024 ArchitektApx <architektapx@gehinors.ch> - 1.0.1.t.20
+- Update to twilight 1.0.1-t.20
+
 * Mon Nov 25 2024 ArchitektApx <architektapx@gehinors.ch> - 1.0.1.a.19
 - Initial Release of spec file to package twiligt builds
-
