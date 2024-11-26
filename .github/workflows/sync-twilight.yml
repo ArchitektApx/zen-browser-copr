@@ -19,26 +19,31 @@ jobs:
         run: |
           # get verrsion from zen-browser-twilight.spec 
           LOCAL_VER=$(grep -oP 'Version:\s*\K.*' zen-browser-twilight.spec)
-          
-          # get latest pre-release version from github, we have to extract the build version from the name as the tag is just "twilight"
-          # name is like "Twilight build - 1.0.1-t.20 (2024-11-24 at 20:15:17)"
-          TWILIGTH=$(curl -s https://api.github.com/repos/zen-browser/desktop/releases | jq -r 'map(select(.prerelease)) | first | .name')
-          TWILIGHT_VER=$(echo $TWILIGTH | grep -oP 'Twilight build - \K.*(?= \()')
-          TWILIGHT_VER_SPEC=$(echo $TWILIGHT_VER | sed 's@-@.@g')
+          echo "Local version: $LOCAL_VER"
 
-          # check if new version is available and new version starts with a digit
-          NEEDS_UPDATE=false
-          echo "Current version: $LOCAL_VER"
-          # check if the version is different and if the new version matches the pattern of a version number
-          if [ "$LOCAL_VER" != "$TWILIGHT_VER_SPEC" ] && [[ $TWILIGHT_VER_SPEC =~ ^[0-9] ]]; then
-            echo "New version available: $TWILIGHT_VER_SPEC"
-            NEEDS_UPDATE=true
+          # get latest pre-release version from github
+          # we have to extract the build version from the name as the tag is just "twilight"
+          # twilight builds are re-released with the same version number sometimes so we add the timestampe to the version
+          TWILIGTH=$(curl -s https://api.github.com/repos/zen-browser/desktop/releases | jq -r 'map(select(.prerelease)) | first | .name')
+          TWILIGHT_VER=$(echo $TWILIGTH | grep -oP 'Twilight build - \K.*(?=\s\()' | sed 's@-@.@g')
+          BUILD_TIMESTAMP=$(echo $TWILIGTH | grep -oP '\(\K.*(?=\))' | sed 's@ at @@g' | sed 's@-@@g' | sed 's@:@@g')
+          TWILIGHT_VER_SPEC="$TWILIGHT_VER.$BUILD_TIMESTAMP"
+
+          # make sure the result matches the expected pattern
+          if [[ "$TWILIGHT_VER_SPEC" =~ ^[0-9\.]*\.t\.[0-9]*\.[0-9]*$ ]]; then
+            echo "Twilight version: $TWILIGHT_VER_SPEC"
           else
-            echo "No new version available"
+            echo "Failed to extract twilight version from github"
+            echo "Invalid result: $TWILIGHT_VER_SPEC"
+            exit 1
+          fi
+
+          NEEDS_UPDATE=false
+          if [ "$LOCAL_VER" != "$TWILIGHT_VER_SPEC" ]; then
+            NEEDS_UPDATE=true
           fi
 
           # write output so next steps can use it to skip if no new version
-          echo "TWILIGHT_VER=$TWILIGHT_VER" >> $GITHUB_ENV
           echo "TWILIGHT_VER_SPEC=$TWILIGHT_VER_SPEC" >> $GITHUB_ENV
           echo "needs_update=$NEEDS_UPDATE" >> $GITHUB_OUTPUT
 
@@ -54,7 +59,7 @@ jobs:
           # update spec file version and url
           sed -i '0,/Version:.*/s//Version:            '$TWILIGHT_VER_SPEC'/' zen-browser-twilight.spec
 
-          COMMIT_MSG="Update to twilight $TWILIGHT_VER"
+          COMMIT_MSG="Update to upstream release $TWILIGHT_VER_SPEC"
           # get current changelog from spec file (everything after %changelog)
           CHANGELOG="$(sed -n '/%changelog/,$p' zen-browser-twilight.spec | sed '1d')"
 
@@ -71,7 +76,4 @@ jobs:
         id: commit-update
         run: |
           git commit -m "chore(zen-browser-twilight): Sync twilight spec to $TWILIGHT_VER_SPEC"
-          git push 
-
-          # get commit sha for later use
-          echo "commit-id=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+          git push
