@@ -30,7 +30,7 @@ jobs:
           NEEDS_UPDATE=false
           echo "Current version: $LOCAL_VER"
           # check if the version is different and if the new version matches the pattern of a version number
-          if [ "$LOCAL_VER" != "TWILIGHT_VER_SPEC" ] && [[ $TWILIGHT_VER_SPEC =~ ^[0-9] ]]; then
+          if [ "$LOCAL_VER" != "$TWILIGHT_VER_SPEC" ] && [[ $TWILIGHT_VER_SPEC =~ ^[0-9] ]]; then
             echo "New version available: $TWILIGHT_VER_SPEC"
             NEEDS_UPDATE=true
           else

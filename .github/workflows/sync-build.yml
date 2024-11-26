@@ -20,14 +20,14 @@ jobs:
       - name: check for new upstream version
         id: check-version
         run: |
-          git fetch --tags
-          LOCAL_TAG=$(git describe --tags --abbrev=0)
+          LOCAL_TAG=$(grep -oP 'Version:\s*\K.*' zen-browser.spec)
           UPSTREAM_VER=$(curl -s https://api.github.com/repos/zen-browser/desktop/releases/latest | jq -r '.tag_name')
+          UPSTREAM_VER_SPEC=$(echo $UPSTREAM_VER | sed 's@-@.@g')
 
           # check if new version is available and new version starts with a digit
           NEEDS_UPDATE=false
           echo "Current version: $LOCAL_TAG"
-          if [ "$LOCAL_TAG" != "$UPSTREAM_VER" ] && [[ $UPSTREAM_VER =~ ^[0-9] ]]; then
+          if [ "$LOCAL_TAG" != "$UPSTREAM_VER_SPEC" ] && [[ $UPSTREAM_VER =~ ^[0-9] ]]; then
             echo "New version available: $UPSTREAM_VER"
             NEEDS_UPDATE=true
           else
@@ -262,11 +262,6 @@ jobs:
           echo -e "%changelog\n$NEW_CHANGELOG" >> zen-browser.spec
           git add zen-browser.spec
 
-      - name: Update Install Script
-        run: |
-          sed -i 's@https://github.com/ArchitektApx/zen-browser-arm64-copr/releases/download/.*@https://github.com/ArchitektApx/zen-browser-arm64-copr/releases/download/'$ZEN_VER'/zen.linux-generic.tar.bz2@g' install-zen-browser-arm64.sh
-          git add install-zen-browser-arm64.sh
-
       - name: commit and tag new version
         id: commit-update
         run: |
@@ -308,7 +303,7 @@ jobs:
       - name: Publish Release
         uses: ncipollo/release-action@v1.14.0
         with: 
-          artifacts: zen.linux-generic.tar.bz2, install-zen-browser-arm64.sh
+          artifacts: zen.linux-generic.tar.bz2
           tag: ${{ needs.sync-upstream.outputs.zen_ver }}
           commit: ${{ needs.build-linux.outputs.commit-id }}
           token: ${{ secrets.GITHUB_TOKEN }}
