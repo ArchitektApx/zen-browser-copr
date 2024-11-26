@@ -9,12 +9,12 @@ Summary:            Zen Browser
 
 License:            MPLv2.0
 URL:                https://github.com/zen-browser/desktop
-Source0:            https://github.com/ArchitektApx/zen-browser-arm64-copr/releases/download/1.0.1-a.19/zen.linux-generic.tar.bz2
+Source0:            https://github.com/zen-browser/desktop/releases/download/1.0.1-a.19/zen.linux-aarch64.tar.bz2
 Source1:            %{full_name}.desktop
 Source2:            policies.json
 Source3:            %{full_name}
 
-ExclusiveArch:  aarch64
+ExclusiveArch:      aarch64
 
 Recommends:         (plasma-browser-integration if plasma-workspace)
 Recommends:         (gnome-browser-connector if gnome-shell)

@@ -24,7 +24,7 @@ if [ "$1" = "twilight" ]; then
     ZEN_LINK="https://github.com/zen-browser/desktop/releases/download/twilight/zen.linux-aarch64.tar.bz2"
 else
     ZEN_VER=$(curl -s https://api.github.com/repos/ArchitektApx/zen-browser-arm64-copr/releases/latest | jq -r '.tag_name')
-    ZEN_LINK="https://github.com/ArchitektApx/zen-browser-arm64-copr/releases/download/$ZEN_VER/zen.linux-generic.tar.bz2"
+    ZEN_LINK="https://github.com/zen-browser/desktop/releases/download/$ZEN_VER/zen.linux-aarch64.tar.bz2"
 fi
 
 echo "Download Zen Browser $ZEN_VER ..."

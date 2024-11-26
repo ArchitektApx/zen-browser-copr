@@ -1,0 +1,71 @@
+name: Sync Upstream Alpha Release
+on:
+  schedule:
+    - cron: '30 */12 * * *'
+  workflow_dispatch:
+
+jobs:
+  sync-upstream:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      needs_update: ${{ steps.check-version.outputs.needs_update }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: check for new upstream version
+        id: check-version
+        run: |
+          LOCAL_VER=$(grep -oP 'Version:\s*\K.*' zen-browser.spec)
+          echo "Local version: $LOCAL_VER"
+
+          ZEN_VER=$(curl -s https://api.github.com/repos/zen-browser/desktop/releases/latest | jq -r '.tag_name')
+          ZEN_VER_SPEC=$(echo $ZEN_VER | sed 's@-@.@g')
+
+          # make sure the result matches the expected pattern
+          if [[ "$ZEN_VER_SPEC" =~ ^[0-9\.]*\.a\.[0-9]*$ ]]; then
+            echo "Zen version: $ZEN_VER_SPEC"
+          else
+            echo "Failed to extract twilight version from github"
+            echo "Invalid result: $ZEN_VER_SPEC"
+            exit 1
+          fi
+
+          NEEDS_UPDATE=false
+          if [ "$LOCAL_VER" != "$ZEN_VER_SPEC" ]; then
+            NEEDS_UPDATE=true
+          fi
+
+          echo "ZEN_VER=$ZEN_VER" >> $GITHUB_ENV
+          echo "ZEN_VER_SPEC=$ZEN_VER_SPEC" >> $GITHUB_ENV
+          echo "needs_update=$NEEDS_UPDATE" >> $GITHUB_OUTPUT
+
+      - name: Setup git bot
+        if: steps.check-version.outputs.needs_update == 'true' 
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Update zen-browser.spec
+        if: steps.check-version.outputs.needs_update == 'true'
+        run: |
+          # update spec file version and url
+          sed -i '0,/Version:.*/s//Version:            '$ZEN_VER_SPEC'/' zen-browser.spec
+          sed -i 's@https://github.com/zen-browser/desktop/releases/download/.*@https://github.com/zen-browser/desktop/releases/download/'$ZEN_VER'/zen.linux-aarch64.tar.bz2@g' zen-browser.spec
+  
+          COMMIT_MSG="Update to upstream release $ZEN_VER"
+          CHANGELOG="$(sed -n '/%changelog/,$p' zen-browser.spec | sed '1d')"
+          NEW_CHANGELOG=$(echo -e "* $(date +'%a %b %d %Y') ArchitektApx <architektapx@gehinors.ch> - $ZEN_VER_SPEC\n- $COMMIT_MSG\n\n$CHANGELOG")
+
+          # replace old changelog with new one
+          sed -i '/%changelog/,$d' zen-browser.spec
+          echo -e "%changelog\n$NEW_CHANGELOG" >> zen-browser.spec
+          git add zen-browser.spec
+
+      - name: commit and tag new version
+        if: steps.check-version.outputs.needs_update == 'true'
+        id: commit-update
+        run: |
+          git commit -m "chore(zen-browser): Sync alpha spec to $ZEN_VER"
+          git push
