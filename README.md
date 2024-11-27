@@ -34,7 +34,7 @@ Bugs related to Zen should be reported directly to the Zen Browser GitHub repo:
 <https://github.com/zen-browser/desktop/issues>
 
 Bugs related to this package should be reported at this Git project:
-<https://github.com/ArchitektApx/zen-browser-arm64-copr>
+<https://github.com/ArchitektApx/zen-browser-copr>
 
 ## Installation Instructions
 1. Enable `architektapx/zen-browser` [Copr](https://copr.fedorainfracloud.org/coprs/architektapx/zen-browser/) repository according to your package manager.
@@ -70,7 +70,7 @@ zen-browser
 
 ## Install without Fedora COPR / other Distros
 
-If you do not want to use COPR or you are not using fedora you can use [install-zen-browser-arm64.sh](https://github.com/ArchitektApx/zen-browser-arm64-copr/blob/master/install-zen-browser-arm64.sh).
+If you do not want to use COPR or you are not using fedora you can use [install-zen-browser-arm64.sh](https://github.com/ArchitektApx/zen-browser-copr/blob/master/install-zen-browser-arm64.sh).
 
 ```Shell
 # install the most recent alpha release 
