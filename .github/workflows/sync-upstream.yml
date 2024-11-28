@@ -1,0 +1,296 @@
+name: Sync Upstream and Build Release
+on:
+  workflow_dispatch:
+
+jobs:
+  sync-upstream:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    outputs:
+      needs_update: ${{ steps.check-version.outputs.needs_update }}
+      zen_ver: ${{ steps.check-version.outputs.zen_ver }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: check for new upstream version
+        id: check-version
+        run: |
+          LOCAL_TAG=$(grep -oP 'Version:\s*\K.*' zen-browser.spec)
+          UPSTREAM_VER=$(curl -s https://api.github.com/repos/zen-browser/desktop/releases/latest | jq -r '.tag_name')
+          UPSTREAM_VER_SPEC=$(echo $UPSTREAM_VER | sed 's@-@.@g')
+
+          # check if new version is available and new version starts with a digit
+          NEEDS_UPDATE=false
+          echo "Current version: $LOCAL_TAG"
+          if [ "$LOCAL_TAG" != "$UPSTREAM_VER_SPEC" ] && [[ $UPSTREAM_VER =~ ^[0-9] ]]; then
+            echo "New version available: $UPSTREAM_VER"
+            NEEDS_UPDATE=true
+          else
+            echo "No new version available"
+          fi
+
+          # write output so next steps can use it to skip if no new version
+          echo "ZEN_VER=$UPSTREAM_VER" >> $GITHUB_ENV
+          echo "needs_update=$NEEDS_UPDATE" >> $GITHUB_OUTPUT
+          echo "zen_ver=$UPSTREAM_VER" >> $GITHUB_OUTPUT
+
+  build-linux:
+    timeout-minutes: 180
+    needs: [sync-upstream]
+    if: needs.sync-upstream.outputs.needs_update == 'true'
+    permissions:
+      contents: write
+    runs-on: buildjet-16vcpu-ubuntu-2204-arm
+    env:
+      ZEN_VER: ${{ needs.sync-upstream.outputs.zen_ver }}
+    outputs:
+      artifact-id: ${{ steps.artifact-upload.outputs.artifact-id }}
+      commit-id: ${{ steps.commit-update.outputs.commit-id }}
+    steps:
+      - name : Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup git bot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+  
+      - name: Update desktop submodule to new version tag
+        run: |
+          echo "Zen Version requested: $ZEN_VER"
+          cd desktop
+          git fetch --tags
+          git checkout $ZEN_VER
+          cd ..
+          git add desktop
+  
+      - name: Install Node.js
+        uses: buildjet/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install and upgrade build deps
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y dos2unix yasm nasm build-essential libgtk2.0-dev libpython3-dev m4 \
+            uuid libasound2-dev libcurl4-openssl-dev libdbus-1-dev libdrm-dev libdbus-glib-1-dev \
+            libdbus-glib-1-dev libgtk-3-dev libpulse-dev libx11-xcb-dev libxt-dev xvfb
+
+      - name: Install LLVM 18 and WASM Support
+        run: | 
+          # install llvm repo
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 18 all
+
+          # wasm support
+          sudo apt-get install -y libclang-rt-18-dev-wasm32 libclang-rt-18-dev-wasm64 \
+            libc++-18-dev-wasm32 libc++abi-18-dev-wasm32 libclang-rt-18-dev-wasm32 \
+            libclang-rt-18-dev-wasm64 libclang-rt-18-dev libpolly-18-dev wasi-libc
+
+      - name: Set LLVM/LLD/etc 18 as default
+        run: | 
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-18 100
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-18 100
+          sudo update-alternatives --install /usr/bin/ld.lld ld.lld /usr/bin/ld.lld-18 100
+          sudo update-alternatives --install /usr/bin/llvm-ar llvm-ar /usr/bin/llvm-ar-18 100
+          sudo update-alternatives --install /usr/bin/llvm-ranlib llvm-ranlib /usr/bin/llvm-ranlib-18 100
+
+          # ensure the option with clang-18 is selected no matter its position
+          sudo update-alternatives --set clang /usr/bin/clang-18
+          sudo update-alternatives --set clang++ /usr/bin/clang++-18
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.6
+
+      - name: Set sccache env vars
+        run: |
+          echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
+          echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+          echo "CCACHE_CPP2=yes" >> $GITHUB_ENV
+
+      - name: Load cached Wasi SDK
+        id: wasi-sdk
+        uses: buildjet/cache@v4
+        with:
+          path: wasi-sdk-24
+          key: wasi-sdk-24
+
+      - name: Download Wasi SDK 24
+        if: steps.wasi-sdk.outputs.cache-hit != 'true'
+        run: |
+          wget -q https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-24/wasi-sdk-24.0-arm64-linux.tar.gz
+          mkdir -p wasi-sdk-24
+          tar -xf wasi-sdk-24.0-arm64-linux.tar.gz -C ${{ github.workspace }}/wasi-sdk-24 --strip-components=1
+
+      - name: Setup Wasi SDK 24
+        run: |
+          echo "WASI_SYSROOT=${{ github.workspace }}/wasi-sdk-24/share/wasi-sysroot" >> $GITHUB_ENV
+          echo "WASM_CC=${{ github.workspace }}/wasi-sdk-24/bin/clang" >> $GITHUB_ENV
+          echo "WASM_CXX=${{ github.workspace }}/wasi-sdk-24/bin/clang++" >> $GITHUB_ENV
+
+      - name: Save Wasi SDK to cache
+        if: steps.wasi-sdk.outputs.cache-hit != 'true'
+        uses: buildjet/cache@v4
+        with:
+          path: wasi-sdk-24
+          key: wasi-sdk-24
+
+      - name: Upgrade Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1.10.1
+        with:
+          toolchain: 1.79.0
+          override: true
+
+      - name: Force default rust toolchain to 1.79.0
+        run: | 
+          rustup default 1.79.0
+          rustup override set 1.79.0
+
+          cd desktop
+          rustup default 1.79.0
+          rustup override set 1.79.0
+
+      - run: rustup target add wasm32-wasi
+    
+      - name: Install npm dependencies
+        run: | 
+          cd desktop
+          pnpm install
+
+      - name: Apply config patches for arm64 build
+        run: |
+          sed -i 's/march=x86-64/march=armv8-a/g' desktop/configs/linux/mozconfig
+          sed -i 's/x86-\(64\|64-v3\)/native/g' desktop/configs/linux/mozconfig
+          sed -i 's/x86_64-pc-linux/aarch64-linux-gnu/g' desktop/configs/linux/mozconfig
+          sed -i '/--enable-eme/s/^/# /' desktop/configs/common/mozconfig
+
+          # disable PGO due to failing builds
+          sed -i '/export MOZ_PGO=1/d' desktop/configs/linux/mozconfig
+          sed -i '/ac_add_options MOZ_PGO=1/d' desktop/configs/linux/mozconfig
+        
+      - name: Load surfer CI setup
+        run: |
+          cd desktop
+          pnpm surfer ci --brand alpha --display-version $ZEN_VER
+
+      - name: Npm Init Task
+        run: |
+          cd desktop
+          npm run init
+
+      - name: Download and add locales
+        run: |
+          cd desktop
+          sh scripts/copy-language-pack.sh en-US
+
+          for lang in $(cat ./l10n/supported-languages); do
+            sh scripts/copy-language-pack.sh "$lang"
+          done
+
+      - name: Info Summary pre-build
+        run: |
+          echo "Server Time is $(date)"
+          # get zen version from desktop/surfer.json
+          echo "Zen Version: $ZEN_VER"
+          echo "Surfer Zen Version: $(jq -r '.brands.alpha.release.displayVersion' desktop/surfer.json)"
+          echo "llvm clang version: $(clang --version)"
+          echo "lld version: $(ld.lld --version)"
+          echo "wasi-sdk clang version: $(${WASM_CC} --version)"
+          echo "wasi-sdk clang++ version: $(${WASM_CXX} --version)"
+          echo "rustc version: $(rustc -vV)"
+
+      - name: Build 
+        env:
+          SURFER_COMPAT: true
+          ZEN_RELEASE: 1
+        run: |
+          cd desktop
+          set -ex
+          Xvfb :2 -screen 0 1024x768x24 &
+          echo "DISPLAY=:2" >> $GITHUB_ENV
+          ulimit -n 4096
+          pnpm build
+
+      - name: Package
+        run: |
+          cd desktop
+          pnpm package
+      
+      - name: Rename Build Artifact
+        run: |
+          mv desktop/dist/zen-*.tar.bz2 zen-browser-linux-arm64.tar.bz2
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        id: artifact-upload
+        with:
+          name: zen-browser-linux-arm64.tar.bz2
+          path: zen-browser-linux-arm64.tar.bz2
+
+      - name: Update zen-browser.spec
+        run: |
+          # format version for spec file
+          ZEN_VER_SPEC=$(echo $ZEN_VER | sed 's@-@.@g')
+          # update spec file version and url
+          sed -i '0,/Version:.*/s//Version:            '$ZEN_VER_SPEC'/' zen-browser.spec
+          sed -i 's@https://github.com/ArchitektApx/zen-browser-copr/releases/download/.*@https://github.com/ArchitektApx/zen-browser-copr/releases/download/'$ZEN_VER'/zen.linux-generic.tar.bz2@g' zen-browser.spec
+          git add zen-browser.spec
+
+      - name: commit and tag new version
+        id: commit-update
+        run: |
+          git commit -m "chore(zen-browser): Sync/Rebuild Zen-Browser to $ZEN_VER"
+          git tag $ZEN_VER
+          git push 
+          git push --tags
+
+          # get commit sha for later use
+          echo "commit-id=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Run sccache stat check
+        run: ${SCCACHE_PATH} --show-stats
+
+  release:
+    needs: [sync-upstream, build-linux]
+    permissions:
+      contents: write
+    if: needs.sync-upstream.outputs.needs_update == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: zen-browser-linux-arm64.tar.bz2
+
+      - name: Setup Release
+        id: setup-release
+        run: |
+          # rename the artifact to the generic name
+          mv zen-browser-linux-arm64.tar.bz2 zen.linux-generic.tar.bz2
+
+          RELEASE_NAME="Alpha ${{ needs.sync-upstream.outputs.zen_ver }} $(date +'%Y-%m-%d')"
+          echo "RELEASE_NAME=$RELEASE_NAME" >> $GITHUB_OUTPUT
+
+      - name: Publish Release
+        uses: ncipollo/release-action@v1.14.0
+        with: 
+          artifacts: zen.linux-generic.tar.bz2
+          tag: ${{ needs.sync-upstream.outputs.zen_ver }}
+          commit: ${{ needs.build-linux.outputs.commit-id }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          generateReleaseNotes: true
+          makeLatest: true
+          name: ${{ steps.setup-release.outputs.RELEASE_NAME }}
+          skipIfReleaseExists: true
