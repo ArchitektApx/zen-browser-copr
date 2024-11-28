@@ -3,13 +3,13 @@
 %global             debug_package %{nil}
 
 Name:               zen-browser
-Version:            1.0.1.a.20
+Version:            1.0.1.a.21
 Release:            1%{?dist}
 Summary:            Zen Browser
 
 License:            MPLv2.0
 URL:                https://github.com/zen-browser/desktop
-Source0:            https://github.com/zen-browser/desktop/releases/download/1.0.1-a.20/zen.linux-aarch64.tar.bz2
+Source0:            https://github.com/zen-browser/desktop/releases/download/1.0.1-a.21/zen.linux-aarch64.tar.bz2
 Source1:            %{full_name}.desktop
 Source2:            policies.json
 Source3:            %{full_name}
@@ -71,6 +71,9 @@ gtk-update-icon-cache -f -t %{_datadir}/icons/hicolor
 /opt/%{full_name}
 
 %changelog
+* Thu Nov 28 2024 ArchitektApx <architektapx@gehinors.ch> - 1.0.1.a.21
+- Update to upstream release 1.0.1-a.21
+
 * Wed Nov 27 2024 ArchitektApx <architektapx@gehinors.ch> - 1.0.1.a.20
 - Update to upstream release 1.0.1-a.20
 
