@@ -1,4 +1,4 @@
-%global             full_name zen-browser
+%global             full_name zen-browser-twilight
 %global             application_name zen
 %global             debug_package %{nil}
 
@@ -19,8 +19,6 @@ ExclusiveArch:      aarch64
 Recommends:         (plasma-browser-integration if plasma-workspace)
 Recommends:         (gnome-browser-connector if gnome-shell)
 
-Conflicts:          zen-browser
-
 %description
 This is a package of the twilight (pre-release) build of Zen web browser for aarch64. 
 Zen Browser is a fork of Firefox that aims to improve the browsing experience by focusing on a simple,
@@ -30,7 +28,7 @@ Bugs related to Zen should be reported directly to the Zen Browser GitHub repo:
 <https://github.com/zen-browser/desktop/issues>
 
 Bugs related to this package should be reported at this Git project:
-<https://github.com/ArchitektApx/zen-browser-arm64-copr>
+<https://github.com/ArchitektApx/zen-browser-copr>
 
 %prep
 %setup -q -n %{application_name}
@@ -68,6 +66,9 @@ if [ -d /usr/share/hyphen ]; then ln -Tsf /usr/share/hyphen %{buildroot}/opt/%{f
 /opt/%{full_name}
 
 %changelog
+* Sun Dec 01 2024 ArchitektApx <architektapx@gehinors.ch> - 1.0.1.t.22.20241201001215
+- Properly separate the twilight build from the main build
+
 * Sun Dec 01 2024 ArchitektApx <architektapx@gehinors.ch> - 1.0.1.t.22.20241201001215
 - Update to upstream release 1.0.1.t.22.20241201001215
 
