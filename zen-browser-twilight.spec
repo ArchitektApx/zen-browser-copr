@@ -3,7 +3,7 @@
 %global             debug_package %{nil}
 
 Name:               zen-browser-twilight
-Version:            1.0.2.t.4.20241219073300
+Version:            1.0.2.t.4.20241219195209
 Release:            1%{?dist}
 Summary:            Zen Browser Twilight Build
 
@@ -66,6 +66,9 @@ if [ -d /usr/share/hyphen ]; then ln -Tsf /usr/share/hyphen %{buildroot}/opt/%{f
 /opt/%{full_name}
 
 %changelog
+* Fri Dec 20 2024 ArchitektApx <architektapx@gehinors.ch> - 1.0.2.t.4.20241219195209
+- Update to upstream release 1.0.2.t.4.20241219195209
+
 * Thu Dec 19 2024 ArchitektApx <architektapx@gehinors.ch> - 1.0.2.t.4.20241219073300
 - Update to upstream release 1.0.2.t.4.20241219073300
 
