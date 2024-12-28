@@ -23,15 +23,6 @@ jobs:
           ZEN_VER=$(curl -s https://api.github.com/repos/zen-browser/desktop/releases/latest | jq -r '.tag_name')
           ZEN_VER_SPEC=$(echo $ZEN_VER | sed 's@-@.@g')
 
-          # make sure the result matches the expected pattern
-          if [[ "$ZEN_VER_SPEC" =~ ^[0-9\.]*\.[a-z]\.[0-9]*$ ]]; then
-            echo "Zen version: $ZEN_VER_SPEC"
-          else
-            echo "Failed to extract version from github"
-            echo "Invalid result: $ZEN_VER_SPEC"
-            exit 1
-          fi
-
           NEEDS_UPDATE=false
           if [ "$LOCAL_VER" != "$ZEN_VER_SPEC" ]; then
             NEEDS_UPDATE=true
