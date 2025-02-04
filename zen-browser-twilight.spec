@@ -9,7 +9,7 @@ Summary:            Zen Browser Twilight Build
 
 License:            MPLv2.0
 URL:                https://github.com/zen-browser/desktop
-Source0:            https://github.com/zen-browser/desktop/releases/download/twilight/zen.linux-aarch64.tar.bz2
+Source0:            https://github.com/zen-browser/desktop/releases/download/twilight/zen.linux-aarch64.tar.xz
 Source1:            %{full_name}.desktop
 Source2:            policies.json
 Source3:            %{full_name}
@@ -67,6 +67,7 @@ if [ -d /usr/share/hyphen ]; then ln -Tsf /usr/share/hyphen %{buildroot}/opt/%{f
 
 %changelog
 * Tue Feb 04 2025 ArchitektApx <architektapx@gehinors.ch> - 1.7.2t.20250203230333
+- Fix upstream release url to use xz instead of bz2 archives
 - Update to upstream release 1.7.2t.20250203230333
 
 * Tue Feb 04 2025 ArchitektApx <architektapx@gehinors.ch> - 1.7.2t.20250203203956
