@@ -43,7 +43,7 @@ jobs:
         run: |
           # update spec file version and url
           sed -i '0,/Version:.*/s//Version:            '$ZEN_VER_SPEC'/' zen-browser.spec
-          sed -i 's@https://github.com/zen-browser/desktop/releases/download/.*@https://github.com/zen-browser/desktop/releases/download/'$ZEN_VER'/zen.linux-aarch64.tar.bz2@g' zen-browser.spec
+          sed -i 's@https://github.com/zen-browser/desktop/releases/download/.*@https://github.com/zen-browser/desktop/releases/download/'$ZEN_VER'/zen.linux-aarch64.tar.xz@g' zen-browser.spec
   
           COMMIT_MSG="Update to upstream release $ZEN_VER"
           CHANGELOG="$(sed -n '/%changelog/,$p' zen-browser.spec | sed '1d')"
